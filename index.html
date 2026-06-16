@@ -91,9 +91,38 @@
     font-size: 14px; opacity: 0; pointer-events: none; transition: all .25s;
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .lock {
+    position: fixed; inset: 0; z-index: 1000;
+    background: linear-gradient(160deg, #7a5640, #4a3326);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: #fff; padding: 24px;
+  }
+  .lock .emoji { font-size: 44px; }
+  .lock h2 { font-size: 18px; margin: 8px 0 4px; }
+  .lock p { font-size: 13px; opacity: .85; margin: 0 0 24px; }
+  .lock input {
+    width: 220px; text-align: center; font-size: 30px; letter-spacing: 14px;
+    padding: 14px 14px 14px 28px; border: none; border-radius: 14px;
+    background: rgba(255,255,255,.96); color: #3a2e26;
+  }
+  .lock .err { color: #ffd2c8; font-size: 13px; height: 18px; margin-top: 12px; }
+  .lock button {
+    margin-top: 14px; background: #f0c98a; color: #4a3326; border: none;
+    border-radius: 14px; padding: 14px 44px; font-size: 16px; font-weight: 700; cursor: pointer;
+  }
 </style>
 </head>
 <body>
+<div class="lock" id="lock">
+  <div class="emoji">☕</div>
+  <h2>セルフカフェ 残り回数</h2>
+  <p>暗証番号を入力してください</p>
+  <input id="pinInput" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="••••">
+  <div class="err" id="pinErr"></div>
+  <button id="pinBtn">解除</button>
+</div>
+
 <div class="wrap">
   <header>
     <h1>☕ セルフカフェ 残り回数</h1>
@@ -144,6 +173,29 @@
 
 <script>
 (function () {
+  // --- PIN ロック ---
+  const PIN = "9999";
+  const lock = document.getElementById("lock");
+  const pinInput = document.getElementById("pinInput");
+  function unlock() { lock.style.display = "none"; }
+  function tryPin() {
+    if (pinInput.value === PIN) {
+      localStorage.setItem("selfcafe-unlocked", "yes");
+      unlock();
+    } else {
+      document.getElementById("pinErr").textContent = "番号が違います";
+      pinInput.value = "";
+    }
+  }
+  if (localStorage.getItem("selfcafe-unlocked") === "yes") {
+    unlock();
+  } else {
+    document.getElementById("pinBtn").onclick = tryPin;
+    pinInput.addEventListener("keydown", e => { if (e.key === "Enter") tryPin(); });
+    pinInput.addEventListener("input", () => { if (pinInput.value.length === 4) tryPin(); });
+    setTimeout(() => pinInput.focus(), 100);
+  }
+
   const VKEY = "selfcafe-visits";   // ["2026-06-16", ...]
   const SKEY = "selfcafe-settings"; // { limit, resetDay }
   const DOW = ["日","月","火","水","木","金","土"];
