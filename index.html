@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#6f4e37">
+<title>セルフカフェ 残り回数</title>
+<style>
+  :root {
+    --bg: #f6efe6;
+    --card: #ffffff;
+    --coffee: #6f4e37;
+    --coffee-dark: #4a3326;
+    --accent: #c08457;
+    --text: #3a2e26;
+    --muted: #9b8978;
+    --danger: #c75b46;
+    --ok: #5b8c5a;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 20px 16px 40px;
+  }
+  .wrap { max-width: 440px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 18px; }
+  header h1 { font-size: 18px; margin: 0; color: var(--coffee-dark); letter-spacing: .05em; }
+  header .sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  .card {
+    background: var(--card);
+    border-radius: 20px;
+    padding: 24px 20px;
+    box-shadow: 0 8px 24px rgba(111,78,55,.10);
+    margin-bottom: 16px;
+  }
+
+  .remain-card { text-align: center; background: linear-gradient(160deg, #7a5640, #5a3e2c); color: #fff; }
+  .remain-label { font-size: 13px; opacity: .85; }
+  .remain-num { font-size: 72px; font-weight: 800; line-height: 1; margin: 6px 0; }
+  .remain-num small { font-size: 22px; font-weight: 600; opacity: .8; }
+  .remain-of { font-size: 13px; opacity: .8; }
+
+  .bar { height: 10px; background: rgba(255,255,255,.25); border-radius: 99px; margin: 16px 4px 6px; overflow: hidden; }
+  .bar > div { height: 100%; background: #f0c98a; border-radius: 99px; transition: width .3s; }
+  .reset-note { font-size: 12px; opacity: .8; margin-top: 10px; }
+
+  .btn {
+    display: block; width: 100%; border: none; border-radius: 16px;
+    padding: 18px; font-size: 18px; font-weight: 700; cursor: pointer;
+    transition: transform .08s, opacity .2s;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn-go { background: var(--coffee); color: #fff; box-shadow: 0 6px 16px rgba(111,78,55,.3); }
+  .btn-go:disabled { background: var(--muted); box-shadow: none; opacity: .7; }
+
+  .section-title { font-size: 13px; color: var(--muted); margin: 4px 4px 10px; font-weight: 700; }
+
+  .visit-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 6px; border-bottom: 1px solid #f0e7da;
+  }
+  .visit-row:last-child { border-bottom: none; }
+  .visit-date { font-size: 15px; }
+  .visit-date .dow { color: var(--muted); font-size: 13px; margin-left: 6px; }
+  .del { background: none; border: none; color: var(--danger); font-size: 13px; cursor: pointer; padding: 6px 8px; }
+  .empty { color: var(--muted); font-size: 14px; text-align: center; padding: 16px 0; }
+
+  details.settings { margin-top: 8px; }
+  details.settings summary { cursor: pointer; color: var(--muted); font-size: 13px; padding: 8px; text-align: center; list-style: none; }
+  details.settings summary::-webkit-details-marker { display: none; }
+  .field { margin: 14px 4px; }
+  .field label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .field input {
+    width: 100%; padding: 12px; border: 1px solid #e2d6c6; border-radius: 12px;
+    font-size: 16px; background: #fbf7f1; color: var(--text);
+  }
+  .hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  .qr-toggle { text-align: center; }
+  .qr-img { display: block; max-width: 220px; margin: 12px auto 0; border-radius: 12px; }
+  .warn { font-size: 11px; color: var(--danger); text-align: center; margin-top: 8px; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(20px);
+    background: var(--coffee-dark); color: #fff; padding: 12px 20px; border-radius: 99px;
+    font-size: 14px; opacity: 0; pointer-events: none; transition: all .25s;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>☕ セルフカフェ 残り回数</h1>
+    <div class="sub" id="periodLabel"></div>
+  </header>
+
+  <div class="card remain-card">
+    <div class="remain-label">今月あと</div>
+    <div class="remain-num"><span id="remain">–</span><small> 回</small></div>
+    <div class="remain-of" id="usedLabel"></div>
+    <div class="bar"><div id="bar"></div></div>
+    <div class="reset-note" id="resetNote"></div>
+  </div>
+
+  <button class="btn btn-go" id="goBtn">＋ 行った！を記録</button>
+
+  <div class="card" style="margin-top:16px;">
+    <div class="section-title">今回の期間の記録</div>
+    <div id="visitList"></div>
+  </div>
+
+  <div class="card qr-toggle">
+    <button class="del" style="color:var(--coffee);font-size:14px;" id="qrBtn">入店用QRを表示 ▼</button>
+    <div id="qrBox" style="display:none;">
+      <img class="qr-img" src="IMG_0779.PNG" alt="入店用QR">
+      <div class="warn">※個人の入店用QRです。他人に見られないようご注意を。</div>
+    </div>
+  </div>
+
+  <details class="settings">
+    <summary>⚙ 設定（プラン・リセット日）</summary>
+    <div class="card" style="margin-top:10px;">
+      <div class="field">
+        <label>月の上限回数</label>
+        <input type="number" id="limitInput" min="1" max="99" inputmode="numeric">
+      </div>
+      <div class="field">
+        <label>リセット日（毎月何日にリセットするか）</label>
+        <input type="number" id="resetDayInput" min="1" max="31" inputmode="numeric">
+        <div class="hint">課金日が基準なら、その日付を入れてください（例: 15日課金 → 15）。月初リセットなら 1。</div>
+      </div>
+      <button class="btn btn-go" id="saveBtn" style="font-size:15px;padding:14px;margin-top:8px;">保存</button>
+    </div>
+  </details>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  const VKEY = "selfcafe-visits";   // ["2026-06-16", ...]
+  const SKEY = "selfcafe-settings"; // { limit, resetDay }
+  const DOW = ["日","月","火","水","木","金","土"];
+
+  function loadSettings() {
+    const def = { limit: 10, resetDay: 1 };
+    try { return Object.assign(def, JSON.parse(localStorage.getItem(SKEY)) || {}); }
+    catch (e) { return def; }
+  }
+  function saveSettings(s) { localStorage.setItem(SKEY, JSON.stringify(s)); }
+  function loadVisits() {
+    try { return JSON.parse(localStorage.getItem(VKEY)) || []; }
+    catch (e) { return []; }
+  }
+  function saveVisits(v) { localStorage.setItem(VKEY, JSON.stringify(v)); }
+
+  function pad(n){ return String(n).padStart(2,"0"); }
+  function ymd(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+  function parseYmd(s){ const [y,m,d]=s.split("-").map(Number); return new Date(y, m-1, d); }
+
+  // 指定したリセット日を基準に、today が属する期間の [開始, 終了) を返す
+  function currentPeriod(today, resetDay) {
+    const y = today.getFullYear(), m = today.getMonth(), d = today.getDate();
+    function clampedDate(year, month, day) {
+      const last = new Date(year, month+1, 0).getDate(); // その月の最終日
+      return new Date(year, month, Math.min(day, last));
+    }
+    let start;
+    if (d >= resetDay) start = clampedDate(y, m, resetDay);
+    else start = clampedDate(y, m-1, resetDay);
+    const end = clampedDate(start.getFullYear(), start.getMonth()+1, resetDay);
+    return { start, end };
+  }
+
+  function render() {
+    const s = loadSettings();
+    const visits = loadVisits().slice().sort(); // 昇順
+    const today = new Date(); today.setHours(0,0,0,0);
+    const { start, end } = currentPeriod(today, s.resetDay);
+
+    const inPeriod = visits.filter(v => {
+      const t = parseYmd(v);
+      return t >= start && t < end;
+    });
+
+    const used = inPeriod.length;
+    const remain = Math.max(0, s.limit - used);
+
+    document.getElementById("remain").textContent = remain;
+    document.getElementById("usedLabel").textContent = `${used} / ${s.limit} 回 利用済み`;
+    document.getElementById("bar").style.width = Math.min(100, used / s.limit * 100) + "%";
+
+    const pl = `期間: ${start.getMonth()+1}/${start.getDate()} 〜 ${end.getMonth()+1}/${end.getDate()-1 < 1 ? end.getDate() : ""}`;
+    // 終了日の前日を表示
+    const lastDay = new Date(end); lastDay.setDate(lastDay.getDate()-1);
+    document.getElementById("periodLabel").textContent =
+      `${start.getMonth()+1}/${start.getDate()}（${DOW[start.getDay()]}） 〜 ${lastDay.getMonth()+1}/${lastDay.getDate()}（${DOW[lastDay.getDay()]}）`;
+
+    const daysLeft = Math.ceil((end - today) / 86400000);
+    document.getElementById("resetNote").textContent =
+      `${end.getMonth()+1}/${end.getDate()} にリセット（あと${daysLeft}日）`;
+
+    // 記録リスト（新しい順）
+    const list = document.getElementById("visitList");
+    list.innerHTML = "";
+    if (inPeriod.length === 0) {
+      list.innerHTML = `<div class="empty">まだ記録がありません</div>`;
+    } else {
+      inPeriod.slice().reverse().forEach(v => {
+        const d = parseYmd(v);
+        const row = document.createElement("div");
+        row.className = "visit-row";
+        row.innerHTML =
+          `<span class="visit-date">${d.getMonth()+1}月${d.getDate()}日<span class="dow">(${DOW[d.getDay()]})</span></span>`;
+        const btn = document.createElement("button");
+        btn.className = "del";
+        btn.textContent = "取り消す";
+        btn.onclick = () => {
+          const all = loadVisits();
+          const idx = all.indexOf(v);
+          if (idx > -1) all.splice(idx, 1);
+          saveVisits(all);
+          render();
+          toast("記録を取り消しました");
+        };
+        row.appendChild(btn);
+        list.appendChild(row);
+      });
+    }
+
+    const goBtn = document.getElementById("goBtn");
+    if (remain <= 0) {
+      goBtn.disabled = true;
+      goBtn.textContent = "今月の上限に達しました";
+    } else {
+      goBtn.disabled = false;
+      goBtn.textContent = "＋ 行った！を記録";
+    }
+  }
+
+  let toastTimer;
+  function toast(msg) {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove("show"), 1800);
+  }
+
+  document.getElementById("goBtn").onclick = () => {
+    const today = ymd(new Date());
+    const visits = loadVisits();
+    visits.push(today);
+    saveVisits(visits);
+    render();
+    toast("☕ 行った！を記録しました");
+  };
+
+  document.getElementById("qrBtn").onclick = () => {
+    const box = document.getElementById("qrBox");
+    const open = box.style.display === "none";
+    box.style.display = open ? "block" : "none";
+    document.getElementById("qrBtn").textContent = open ? "入店用QRを隠す ▲" : "入店用QRを表示 ▼";
+  };
+
+  // 設定の初期値反映
+  const s0 = loadSettings();
+  document.getElementById("limitInput").value = s0.limit;
+  document.getElementById("resetDayInput").value = s0.resetDay;
+
+  document.getElementById("saveBtn").onclick = () => {
+    let limit = parseInt(document.getElementById("limitInput").value, 10);
+    let resetDay = parseInt(document.getElementById("resetDayInput").value, 10);
+    if (!(limit >= 1)) limit = 10;
+    if (!(resetDay >= 1 && resetDay <= 31)) resetDay = 1;
+    saveSettings({ limit, resetDay });
+    render();
+    toast("設定を保存しました");
+  };
+
+  render();
+})();
+</script>
+</body>
+</html>
